@@ -1,0 +1,199 @@
+#include "ThingSpeak.h"
+#include "secrets.h"
+#include "WiFi.h"
+#include <U8x8lib.h>
+#include <LoRa.h>
+
+String receivedText;
+String receivedRssi;
+
+String inString = "";    // string to hold input
+// WIFI_LoRa_32 ports
+// GPIO5  -- SX1278's SCK
+// GPIO19 -- SX1278's MISO
+// GPIO27 -- SX1278's MOSI
+// GPIO18 -- SX1278's CS
+// GPIO14 -- SX1278's RESET
+// GPIO26 -- SX1278's IRQ(Interrupt Request)
+
+#define SS      18
+#define RST     14
+#define DI0     26
+#define BAND    433E6
+
+char ssid[] = "myhome";   // your network SSID (name) 
+char pass[] = "xerophyte@31527a";   // your network password
+int keyIndex = 0;            // your network key Index number (needed only for WEP)
+WiFiClient  client;
+
+unsigned long myChannelNumber = 360427;
+const char * myWriteAPIKey = "XWGEG7056GTF6DI9";
+
+int number = 100;
+U8X8_SSD1306_128X64_NONAME_SW_I2C u8x8(/* clock=*/ 15, /* data=*/ 4, /* reset=*/ 16);
+
+String getValue(String data, char separator, int index)
+{
+    int found = 0;
+    int strIndex[] = { 0, -1 };
+    int maxIndex = data.length() - 1;
+
+    for (int i = 0; i <= maxIndex && found <= index; i++) {
+        if (data.charAt(i) == separator || i == maxIndex) {
+            found++;
+            strIndex[0] = strIndex[1] + 1;
+            strIndex[1] = (i == maxIndex) ? i+1 : i;
+        }
+    }
+    return found > index ? data.substring(strIndex[0], strIndex[1]) : "";
+}
+
+
+void setup() {
+  Serial.begin(115200);  //Initialize serial
+
+  WiFi.mode(WIFI_STA);   
+  ThingSpeak.begin(client);  // Initialize ThingSpeak
+  SPI.begin(5, 19, 27, 18);
+  LoRa.setPins(SS, RST, DI0);
+
+  //Serial.begin(115200);
+  while (!Serial); //if just the the basic function, must connect to a computer
+  
+  u8x8.begin();
+  u8x8.setFont(u8x8_font_chroma48medium8_r);
+
+  Serial.println("LoRa Receiver");
+  u8x8.drawString(0, 1, "LoRa Receiver");
+
+  if (!LoRa.begin(BAND)) {
+    Serial.println("Starting LoRa failed!");
+    u8x8.drawString(0, 1, "Starting LoRa failed!");
+    while (1);
+  }
+}
+
+void loop() {
+
+  // Connect or reconnect to WiFi
+  if(WiFi.status() != WL_CONNECTED){
+    Serial.print("Attempting to connect to SSID: ");
+    Serial.println(SECRET_SSID);
+    while(WiFi.status() != WL_CONNECTED){
+      WiFi.begin(ssid, pass); // Connect to WPA/WPA2 network. Change this line if using open or WEP network
+      Serial.print(".");
+      delay(5000);     
+    } 
+    Serial.println("\nConnected.");
+  }
+
+  // Write to ThingSpeak. There are up to 8 fields in a channel, allowing you to store up to 8 different
+  // pieces of information in a channel.  Here, we write to field 1.
+ // int x = ThingSpeak.writeField(myChannelNumber, 1, number, myWriteAPIKey);
+ // if(x == 200){
+ //   Serial.println("Channel update successful.");
+ // }
+ // else{
+  //  Serial.println("Problem updating channel. HTTP error code " + String(x));
+ // }
+  
+  // change the value
+ // number++;
+ // if(number > 99){
+  //  number = 0;
+ // }
+  
+  //delay(20000); // Wait 20 seconds to update the channel again
+  int packetSize = LoRa.parsePacket();
+  if (packetSize) {
+    // received a packet
+   // Serial.print("Received packet '");
+    u8x8.drawString(0, 4, "PacketID");
+//Serial.println("");
+    // read packet
+    while (LoRa.available()) {
+      
+       Serial.println("");
+     // receivedText = (char)LoRa.read();
+      receivedText = LoRa.readString();
+      //strcpy(copy, receivedText); //to character array
+      //Serial.println(copy);
+       delay(2000);
+      Serial.print(receivedText);
+Serial.println("===================================");
+     ///////////////////////////////////////////////////////////////
+     // put your main code here, to run repeatedly:
+  //String myString="10:220:330:40";
+//Serial.println(myString);
+String xval = getValue(receivedText, ':', 0);
+String yval = getValue(receivedText, ':', 1);
+String pval = getValue(receivedText, ':', 2);
+String qval = getValue(receivedText, ':', 3);
+Serial.println("-----------------------------");
+Serial.println("X:" + xval);
+delay(20);
+Serial.println("Y:" + yval);
+delay(20);
+//Serial.println(yval);
+//delay(20);
+
+
+Serial.println("P:" + pval);
+delay(20);
+//Serial.println(yval);
+//delay(2000);
+Serial.println("Q:" + qval);
+delay(20);
+
+//Serial.println(xval);
+//delay(2000);
+Serial.println("==========Integer conversion=================");
+int xvalue = xval.toInt();
+int yvalue = yval.toInt();
+int pvalue = pval.toInt();
+int qvalue = qval.toInt();
+Serial.println(xvalue);
+delay(20);
+Serial.println(yvalue);
+delay(20);
+Serial.println(pvalue);
+delay(20);
+Serial.println(qvalue);
+delay(20);
+ 
+      
+    Serial.println("----------THINGSPEAK-----------------");
+//   //   Serial.print(f);
+      ThingSpeak.writeField(myChannelNumber, 1, xvalue, myWriteAPIKey);
+      delay(20000);
+      Serial.println("Updated field 1");
+       ThingSpeak.writeField(myChannelNumber, 2, yvalue, myWriteAPIKey);
+      delay(20000);
+      Serial.println("Updated field 2");
+      ThingSpeak.writeField(myChannelNumber, 3, pvalue, myWriteAPIKey);
+      delay(20000);
+      Serial.println("Updated field 3");
+      ThingSpeak.writeField(myChannelNumber, 4, qvalue, myWriteAPIKey);
+      delay(20000);
+      Serial.println("Updated field 4");
+      //int Temperature=String.toInt(receivedText);
+      //Serial.print(Temperature
+     // delay(2000);
+      //Serial.print(receivedText);
+      char currentid[64];
+      receivedText.toCharArray(currentid, 64);
+      u8x8.drawString(9, 4, currentid);
+    }
+
+    // print RSSI of packet
+ //  Serial.print("' with RSSI ");
+ //  Serial.print(LoRa.packetRssi());
+   //receivedText.toCharArray(copy,18);
+    
+    u8x8.drawString(0, 5, "PacketRS");
+    receivedRssi = LoRa.packetRssi();
+    char currentrs[64];
+    receivedRssi.toCharArray(currentrs, 64);
+    u8x8.drawString(9, 5, currentrs);
+  }
+}
