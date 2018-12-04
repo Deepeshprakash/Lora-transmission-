@@ -1,0 +1,145 @@
+//1. Temperatue and humidity sensor
+//2. Ultrasonic Sensor 
+//3. RainGuage rain measurement
+#include <SPI.h>
+#include <LoRa.h>
+#include "DHT.h"
+
+const int  buttonPin = 5;    // this is connected to rain guage
+
+
+// Variables will change:
+int buttonPushCounter = 0;   // counter for the number of button presses button refers to rainguage
+int buttonState = 0;         // current state of the button
+int lastButtonState = 0;     // previous state of the button
+
+
+
+
+#define DHTPIN 6     // what digital pin we're connected to
+const int trigPin = 3;
+const int echoPin=4;
+
+
+float duration, distance;
+// Uncomment whatever type you're using!
+#define DHTTYPE DHT11   // DHT 11
+//#define DHTTYPE DHT22   // DHT 22  (AM2302), AM2321
+//#define DHTTYPE DHT21   // DHT 21 (AM2301)
+DHT dht(DHTPIN, DHTTYPE);
+String payload;
+String Temperature;
+String Humidity;
+String Rainfall;
+String Riverlevel;
+int Water_level()
+{
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+  duration = pulseIn(echoPin, HIGH);
+  distance = (duration*.0343)/2;
+ Serial.print("Distance: ");
+ Serial.println(distance);
+  return distance;
+  //return 10;
+ // delay(100);
+}
+
+int Temperatue_Measurement()
+{
+  delay(2000);
+  // Read temperature as Celsius (the default)
+  float t = dht.readTemperature();
+  Serial.println("temp =");
+  Serial.println(t);
+  return t;
+ // return 20;
+  
+}
+
+int RelativeHumidity_Measuement()
+{
+  // Wait a few seconds between measurements.
+  delay(2000);
+
+  // Reading temperature or humidity takes about 250 milliseconds!
+  // Sensor readings may also be up to 2 seconds 'old' (its a very slow sensor)
+  float h = dht.readHumidity();
+  Serial.println("Humid=");
+  Serial.println(h);
+  return h;
+  //return 30;
+}
+
+
+int RainGuage_Reading()
+{
+  buttonState = digitalRead(buttonPin);
+
+  // compare the buttonState to its previous state
+  if (buttonState != lastButtonState) {
+    // if the state has changed, increment the counter
+    if (buttonState == HIGH) {
+      // if the current state is HIGH then the button
+      // wend from off to on:
+      buttonPushCounter++;
+      Serial.println("on");
+      Serial.print("number of button pushes:  ");
+      Serial.println(buttonPushCounter);
+}
+  }
+  return buttonPushCounter;
+}
+void setup() {
+  Serial.begin(9600);
+  while (!Serial);
+
+  Serial.println("LoRa Sender");
+
+  if (!LoRa.begin(433E6)) {
+    Serial.println("Starting LoRa failed!");
+    while (1);
+  }
+  dht.begin();
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+   pinMode(buttonPin, INPUT);
+  // put your setup code here, to run once:
+
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  //1 Read temperature 
+// Serial.println(Temperatue_Measurement());
+ // delay(200);
+  //2 Read Humidity
+ // Serial.println(RelativeHumidity_Measuement());
+ // delay(200);
+  //3 Read water level
+ // Serial.println(Water_level());
+  //delay(200);
+  //4 Read rain gauge value
+// Serial.println(RainGuage_Reading());
+ // delay(200);
+
+
+ Temperature=String(Temperatue_Measurement());
+ Humidity=String(RelativeHumidity_Measuement());
+ Rainfall=String(RainGuage_Reading());
+ Riverlevel=String(Water_level());
+ payload = Temperature + ":" + Humidity + ":" + Rainfall + ":" + Riverlevel;
+ Serial.println(payload); 
+ 
+  
+ LoRa.beginPacket();
+  
+ LoRa.print( payload);
+ delay(200);
+  LoRa.endPacket();
+ Serial.println("==================================");
+
+}
